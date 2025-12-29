@@ -1,4 +1,7 @@
-"""Single-agent MVP orchestrating the OSINT toolchain."""
+"""Single-agent MVP orchestrating the OSINT toolchain.
+
+LangGraph 版の多段エージェントは langgraph_runner.build_langgraph_app() を参照。
+"""
 
 from __future__ import annotations
 
@@ -17,6 +20,7 @@ from .tools import (
     WebSearchTool,
 )
 from .tools.base import Tool
+from .langgraph_runner import build_langgraph_app
 
 
 class OSINTAgent:
@@ -49,24 +53,29 @@ class OSINTAgent:
         ]
 
     def run(self, problem: ProblemInput) -> AgentResult:
-        plan = self.plan(problem)
-        store = EvidenceStore()
+        # デフォルトは LangGraph を使う（鍵が無くてもオフライン動作）
+        app = build_langgraph_app(self.config).compile()
+        state = {
+            "input": problem.text,
+            "plan": [step.title for step in self.plan(problem)],
+            "evidence": [],
+            "flags": [],
+            "loop": 0,
+            "stop": False,
+        }
+        final_state = app.invoke(state)
 
-        tool_index = {tool.name: tool for tool in self.tools}
-        for step in plan:
-            tool = tool_index.get(step.tool)
-            if not tool:
-                continue
-            results = tool.run(problem)
-            store.extend(results)
-
-        flag_candidates = self._extract_flags(problem.text, [ev.fact for ev in store.all()])
+        evidence = [
+            Evidence(source=ev.get("source", ""), fact=ev.get("fact", ""), confidence=ev.get("confidence", 0.0), metadata=ev.get("metadata", {}))
+            for ev in final_state.get("evidence", [])
+        ]
+        flag_candidates = final_state.get("flags", []) or self._extract_flags(problem.text)
 
         return AgentResult(
-            plan=plan,
-            evidence=store.all(),
+            plan=self.plan(problem),
+            evidence=evidence,
             flag_candidates=flag_candidates,
-            notes="Toggle network/API keys in env to enable live searches.",
+            notes="LangGraph pipeline executed (planner/tools/validator/flagger).",
         )
 
     def _extract_flags(self, *sources: Iterable[str]) -> List[str]:

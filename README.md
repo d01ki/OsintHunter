@@ -13,6 +13,19 @@ Options:
 - `--url`: Add one or more URLs to the context
 - `--image`: Add one or more image paths for image OSINT pivots
 
+### Docker / Compose
+
+```bash
+docker compose build
+docker compose run --rm app python -m osinthunter.main "Find the flag in this tweet from @sample_user"
+```
+
+コンテナ内でシェルを開く場合:
+
+```bash
+docker compose run --rm app bash
+```
+
 ## Configuration
 
 Environment variables (optional):

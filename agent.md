@@ -244,6 +244,31 @@ display(Image(app.get_graph().draw_mermaid_png()))
 
 ### エージェント構成
 
+#### マルチエージェント構成（LangGraph案）
+
+- Orchestrator (LLM): 入力を解析し、サブエージェントへルーティング。進行状況と evidence を集約。
+- Planner: 計画立案・タスク分解・再調査の判断（ループ制御）。
+- Web Research Agent: 検索系（Bing/SerpAPI/Wayback/WHOIS）。
+- SNS Agent: ハンドル横断検索と投稿解析。
+- Image Agent: 画像 EXIF/OCR + 逆画像検索（外部 API による）。
+- Geo Agent: 地名曖昧検索・座標リバースジオコーディング・ランドマーク照合。
+- Validator: 矛盾検出・スコアリング。
+- Flag Formatter: flag{...} 形式に整形。
+
+状態管理（例）
+- `state.input`: 元プロンプト
+- `state.evidence`: Evidence のリスト
+- `state.plan`: Planner 提案ステップ
+- `state.flags`: 収集した flag 候補
+- `state.trace`: 実行ログ
+
+終了条件
+- Flag Formatter が十分な信頼度のフラグを生成、またはループ上限到達。
+
+可視化（PNG）
+
+![LangGraph multi-agent](docs/agent_graph.png)
+
 #### 1. Planner Agent
 
 - 問題を分解
