@@ -1,9 +1,11 @@
-"""Geolocation helper tool."""
+"""Geolocation helper tool and LangChain-compatible wrapper."""
 
 from __future__ import annotations
 
 import re
 from typing import List
+
+from langchain_core.tools import BaseTool
 
 from .base import Tool
 from ..models import Evidence, ProblemInput
@@ -30,3 +32,21 @@ class GeolocationTool(Tool):
             evidence.append(Evidence(source=self.name, fact="No coordinates detected; use landmarks or language cues", confidence=0.3))
 
         return evidence
+
+
+class GeolocationLookupTool(BaseTool):
+    """LangChain BaseTool wrapper for geolocation hints."""
+
+    name = "geolocation"
+    description = "Suggest location pivots from coordinates or text"
+
+    def _run(self, query: str) -> str:
+        # Simple deterministic guidance; this is safe for offline use.
+        coords = re.findall(r"(-?\d{1,3}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})", query)
+        if coords:
+            parts = [f"Map lookup for coordinates {lat}, {lon}" for lat, lon in coords]
+            return " | ".join(parts)
+        return "No coordinates detected; pivot on landmarks or language cues"
+
+    async def _arun(self, query: str) -> str:  # pragma: no cover - async not used
+        return self._run(query)

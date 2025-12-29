@@ -1,9 +1,11 @@
-"""Image OSINT stubs and recommendations."""
+"""Image OSINT stubs and LangChain-compatible wrapper."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import List
+
+from langchain_core.tools import BaseTool
 
 from .base import Tool
 from ..models import Evidence, ProblemInput
@@ -28,3 +30,17 @@ class ImageOSINTTool(Tool):
             evidence.append(Evidence(source=self.name, fact="No images provided", confidence=0.2))
 
         return evidence
+
+
+class ImageInspectTool(BaseTool):
+    """LangChain BaseTool wrapper for image OSINT guidance."""
+
+    name = "image-inspect"
+    description = "Plan EXIF/OCR/landmark checks for provided image hints"
+
+    def _run(self, query: str) -> str:
+        # Deterministic guidance for offline use.
+        return "Inspect image with exiftool, run OCR, and check landmarks via reverse image search"
+
+    async def _arun(self, query: str) -> str:  # pragma: no cover - async not used
+        return self._run(query)

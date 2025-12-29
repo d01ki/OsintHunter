@@ -6,6 +6,8 @@ from .url_investigation import URLInvestigationTool
 from .sns_osint import SNSOSINTTool
 from .image_osint import ImageOSINTTool
 from .geolocation import GeolocationTool
+from .geolocation import GeolocationLookupTool
+from .image_osint import ImageInspectTool
 
 __all__ = [
     "TextAnalysisTool",
@@ -14,4 +16,6 @@ __all__ = [
     "SNSOSINTTool",
     "ImageOSINTTool",
     "GeolocationTool",
+    "GeolocationLookupTool",
+    "ImageInspectTool",
 ]

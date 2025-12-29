@@ -10,6 +10,8 @@ from typing import Optional
 @dataclass
 class OSINTConfig:
     openai_api_key: Optional[str]
+    openrouter_api_key: Optional[str]
+    openrouter_base_url: Optional[str]
     serpapi_api_key: Optional[str]
     bing_api_key: Optional[str]
     allow_network: bool = False
@@ -22,6 +24,8 @@ def load_config() -> OSINTConfig:
 
     return OSINTConfig(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+        openrouter_base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
         serpapi_api_key=os.getenv("SERPAPI_API_KEY"),
         bing_api_key=os.getenv("BING_API_KEY"),
         allow_network=os.getenv("OSINTHUNTER_ALLOW_NETWORK", "false").lower() == "true",

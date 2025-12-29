@@ -57,6 +57,8 @@ class OSINTAgent:
         app = build_langgraph_app(self.config).compile()
         state = {
             "input": problem.text,
+            "urls": problem.urls,
+            "images": problem.image_paths,
             "plan": [step.title for step in self.plan(problem)],
             "evidence": [],
             "flags": [],
