@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>OSINT CTF フラグ探索</h1>
+  <p>問題文と手掛かり（URL, 画像パス）を入力して、エージェントに初動調査を任せましょう。</p>
+</section>
+
+<form class="grid" method="post" action="/run">
+  <div class="card">
+    <label for="prompt">問題文 / 手掛かり</label>
+    <textarea id="prompt" name="prompt" placeholder="Find the flag in this tweet from @sample_user ..." required></textarea>
+    <p class="muted">文章はそのまま貼り付け。座標やハンドルがあれば優先して検出します。</p>
+  </div>
+
+  <div class="card two-col">
+    <div>
+      <label for="urls">URL（1行1件）</label>
+      <textarea id="urls" name="urls" placeholder="https://example.com
+https://twitter.com/user"></textarea>
+    </div>
+    <div>
+      <label for="images">画像パス（1行1件）</label>
+      <textarea id="images" name="images" placeholder="/data/osint/image1.jpg
+/data/osint/image2.png"></textarea>
+    </div>
+  </div>
+
+  <div class="card" style="display:flex; gap:12px; align-items:center;">
+    <div style="flex:1;">
+      <strong>LangGraph + LangChain</strong>
+      <div class="muted">Planner/Validator は LLM キーがあれば活性化。キーなしでもヒューリスティックで動作します。</div>
+    </div>
+    <button type="submit" style="max-width:200px;">Run Agent</button>
+  </div>
+</form>
+{% endblock %}

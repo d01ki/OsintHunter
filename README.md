@@ -26,6 +26,14 @@ docker compose run --rm app python -m osinthunter.main "Find the flag in this tw
 docker compose run --rm app bash
 ```
 
+### Web UI (FastAPI)
+
+```bash
+docker compose run --rm -p 8000:8000 app uvicorn osinthunter.web.app:app --host 0.0.0.0 --port 8000
+```
+
+ブラウザで http://localhost:8000/ を開くと、問題入力フォームと結果ビューが利用できます。Planner/Validator は OpenAI または OpenRouter のキーがある場合に LLM を活性化し、キーが無い場合はヒューリスティックで動作します。
+
 ## Configuration
 
 Environment variables (optional):

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>結果</h1>
+  <p>入力をもとにエージェントが収集・推論した内容です。</p>
+</section>
+
+<div class="grid">
+  <div class="card">
+    <h3>入力</h3>
+    <p><strong>テキスト:</strong> {{ prompt }}</p>
+    {% if urls %}<p><strong>URL:</strong> {{ urls|join(', ') }}</p>{% endif %}
+    {% if images %}<p><strong>画像:</strong> {{ images|join(', ') }}</p>{% endif %}
+  </div>
+
+  <div class="card">
+    <h3>プラン</h3>
+    {% for step in result.plan %}
+      <span class="pill-plan">{{ step.title }}</span>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Evidence</h3>
+    {% if result.evidence %}
+      {% for ev in result.evidence %}
+        <div class="evidence-item">
+          <div><strong>{{ ev.source }}</strong> ({{ '%.2f'|format(ev.confidence) }})</div>
+          <div>{{ ev.fact }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">なし</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Flag Candidates</h3>
+    {% if result.flag_candidates %}
+      <ul>
+        {% for f in result.flag_candidates %}
+          <li>{{ f }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">候補なし</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
