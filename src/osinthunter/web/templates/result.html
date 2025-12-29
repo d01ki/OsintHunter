@@ -5,6 +5,13 @@
   <p>入力をもとにエージェントが収集・推論した内容です。</p>
 </section>
 
+{% if error %}
+<div class="card" style="border:1px solid #e03b24;background:#fff3f0;">
+  <h3>エラー</h3>
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
 <div class="grid">
   <div class="card">
     <h3>入力</h3>
@@ -15,14 +22,18 @@
 
   <div class="card">
     <h3>プラン</h3>
-    {% for step in result.plan %}
-      <span class="pill-plan">{{ step.title }}</span>
-    {% endfor %}
+    {% if result %}
+      {% for step in result.plan %}
+        <span class="pill-plan">{{ step.title }}</span>
+      {% endfor %}
+    {% else %}
+      <p class="muted">未実行</p>
+    {% endif %}
   </div>
 
   <div class="card">
     <h3>Evidence</h3>
-    {% if result.evidence %}
+    {% if result and result.evidence %}
       {% for ev in result.evidence %}
         <div class="evidence-item">
           <div><strong>{{ ev.source }}</strong> ({{ '%.2f'|format(ev.confidence) }})</div>
@@ -36,7 +47,7 @@
 
   <div class="card">
     <h3>Flag Candidates</h3>
-    {% if result.flag_candidates %}
+    {% if result and result.flag_candidates %}
       <ul>
         {% for f in result.flag_candidates %}
           <li>{{ f }}</li>

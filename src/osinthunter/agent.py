@@ -10,36 +10,62 @@ from typing import Iterable, List, Sequence
 
 from .config import OSINTConfig, load_config
 from .memory import EvidenceStore
-from .models import AgentResult, PlanStep, ProblemInput
+from .models import AgentResult, Evidence, PlanStep, ProblemInput
 from .tools import (
-    GeolocationTool,
-    ImageOSINTTool,
-    SNSOSINTTool,
-    TextAnalysisTool,
-    URLInvestigationTool,
-    WebSearchTool,
+    GeolocationAgent,
+    ImageOSINTAgent,
+    SNSOSINTAgent,
+    TavilySearchAgent,
+    TextAnalysisAgent,
+    URLInvestigationAgent,
+    WebSearchAgent,
+    GoogleLensAgent,
+    ShodanAgent,
+    CensysAgent,
+    WhoisAgent,
+    BuiltWithAgent,
+    HunterAgent,
+    PhonebookAgent,
+    WaybackAgent,
+    SocialSearchAgent,
+    SherlockAgent,
+    EarthViewAgent,
+    YandexReverseImageAgent,
 )
-from .tools.base import Tool
+from .tools.base import Agent as SubAgent
 from .langgraph_runner import build_langgraph_app
 
 
 class OSINTAgent:
-    def __init__(self, config: OSINTConfig | None = None, tools: Sequence[Tool] | None = None) -> None:
+    def __init__(self, config: OSINTConfig | None = None, tools: Sequence[SubAgent] | None = None) -> None:
         self.config = config or load_config()
-        self.tools: List[Tool] = list(tools) if tools is not None else self._default_tools()
+        self.tools: List[SubAgent] = list(tools) if tools is not None else self._default_tools()
 
-    def _default_tools(self) -> List[Tool]:
+    def _default_tools(self) -> List[SubAgent]:
         return [
-            TextAnalysisTool(),
-            URLInvestigationTool(),
-            SNSOSINTTool(),
-            WebSearchTool(
+            TextAnalysisAgent(),
+            URLInvestigationAgent(),
+            SNSOSINTAgent(),
+            WebSearchAgent(
                 serpapi_api_key=self.config.serpapi_api_key,
                 bing_api_key=self.config.bing_api_key,
                 allow_network=self.config.allow_network,
             ),
-            GeolocationTool(),
-            ImageOSINTTool(),
+            GeolocationAgent(),
+            ImageOSINTAgent(),
+            TavilySearchAgent(api_key=self.config.tavily_api_key, allow_network=self.config.allow_network),
+            GoogleLensAgent(serpapi_api_key=self.config.serpapi_api_key, allow_network=self.config.allow_network),
+            ShodanAgent(api_key=self.config.shodan_api_key, allow_network=self.config.allow_network),
+            CensysAgent(api_id=self.config.censys_api_id, api_secret=self.config.censys_api_secret, allow_network=self.config.allow_network),
+            WhoisAgent(),
+            BuiltWithAgent(api_key=self.config.builtwith_api_key, allow_network=self.config.allow_network),
+            HunterAgent(api_key=self.config.hunter_api_key, allow_network=self.config.allow_network),
+            PhonebookAgent(),
+            WaybackAgent(allow_network=self.config.allow_network),
+            SocialSearchAgent(),
+            SherlockAgent(),
+            EarthViewAgent(),
+            YandexReverseImageAgent(),
         ]
 
     def plan(self, problem: ProblemInput) -> List[PlanStep]:
@@ -67,10 +93,17 @@ class OSINTAgent:
         }
         final_state = app.invoke(state)
 
-        evidence = [
-            Evidence(source=ev.get("source", ""), fact=ev.get("fact", ""), confidence=ev.get("confidence", 0.0), metadata=ev.get("metadata", {}))
-            for ev in final_state.get("evidence", [])
-        ]
+        evidence_store = EvidenceStore()
+        for ev in final_state.get("evidence", []):
+            evidence_store.add(
+                Evidence(
+                    source=ev.get("source", ""),
+                    fact=ev.get("fact", ""),
+                    confidence=ev.get("confidence", 0.0),
+                    metadata=ev.get("metadata", {}),
+                )
+            )
+        evidence = evidence_store.all()
         flag_candidates = final_state.get("flags", []) or self._extract_flags(problem.text)
 
         return AgentResult(
@@ -83,6 +116,8 @@ class OSINTAgent:
     def _extract_flags(self, *sources: Iterable[str]) -> List[str]:
         candidates: List[str] = []
         for source in sources:
-            text_block = " ".join(source)
+            if not source:
+                continue
+            text_block = " ".join([source] if isinstance(source, str) else list(source))
             candidates.extend(re.findall(r"flag\{[^}]+\}", text_block, flags=re.IGNORECASE))
         return sorted(set(candidates))

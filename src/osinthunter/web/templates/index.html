@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="hero">
-  <h1>OSINT CTF フラグ探索</h1>
-  <p>問題文と手掛かり（URL, 画像パス）を入力して、エージェントに初動調査を任せましょう。</p>
+  <h1>調査ワークスペース</h1>
+  <p>テキスト、URL、画像をまとめて投入し、エージェントに初動プランと証跡整理を任せます。</p>
 </section>
 
-<form class="grid" method="post" action="/run">
+<form class="grid" method="post" action="/run" enctype="multipart/form-data">
   <div class="card">
     <label for="prompt">問題文 / 手掛かり</label>
     <textarea id="prompt" name="prompt" placeholder="Find the flag in this tweet from @sample_user ..." required></textarea>
@@ -22,6 +22,13 @@ https://twitter.com/user"></textarea>
       <label for="images">画像パス（1行1件）</label>
       <textarea id="images" name="images" placeholder="/data/osint/image1.jpg
 /data/osint/image2.png"></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="upload">画像アップロード（任意 / 最大 5MB / セッション後に破棄）</label>
+    <input id="upload" name="upload" type="file" accept="image/*" multiple />
+    <p class="muted">セキュリティのためアップロードは一時ファイルとして処理し、応答後に削除します。</p>
     </div>
   </div>
 

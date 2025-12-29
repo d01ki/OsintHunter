@@ -7,11 +7,11 @@ from typing import List
 
 from langchain_core.tools import BaseTool
 
-from .base import Tool
+from .base import Agent
 from ..models import Evidence, ProblemInput
 
 
-class GeolocationTool(Tool):
+class GeolocationAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
             name="geolocation",
@@ -34,11 +34,15 @@ class GeolocationTool(Tool):
         return evidence
 
 
+# Backward compatibility
+GeolocationTool = GeolocationAgent
+
+
 class GeolocationLookupTool(BaseTool):
     """LangChain BaseTool wrapper for geolocation hints."""
 
-    name = "geolocation"
-    description = "Suggest location pivots from coordinates or text"
+    name: str = "geolocation"
+    description: str = "Suggest location pivots from coordinates or text"
 
     def _run(self, query: str) -> str:
         # Simple deterministic guidance; this is safe for offline use.

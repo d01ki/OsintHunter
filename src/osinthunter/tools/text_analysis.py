@@ -6,11 +6,11 @@ import re
 from urllib.parse import urlparse
 from typing import List
 
-from .base import Tool
+from .base import Agent
 from ..models import Evidence, ProblemInput
 
 
-class TextAnalysisTool(Tool):
+class TextAnalysisAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
             name="text-analysis",
@@ -24,6 +24,7 @@ class TextAnalysisTool(Tool):
             return []
 
         evidence: List[Evidence] = []
+        text_lower = text.lower()
 
         url_matches = set(re.findall(r"https?://[^\s]+", text))
         for raw_url in url_matches:
@@ -57,4 +58,16 @@ class TextAnalysisTool(Tool):
                 )
             )
 
+        ip_matches = set(re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", text))
+        for ip in ip_matches:
+            evidence.append(Evidence(source=self.name, fact=f"Possible IP address: {ip}", confidence=0.5))
+
+        hashtags = set(re.findall(r"#(\w{2,64})", text_lower))
+        for tag in hashtags:
+            evidence.append(Evidence(source=self.name, fact=f"Hashtag detected: #{tag}", confidence=0.45))
+
         return evidence
+
+
+# Backward compatibility
+TextAnalysisTool = TextAnalysisAgent

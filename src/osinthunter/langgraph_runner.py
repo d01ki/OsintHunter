@@ -19,12 +19,25 @@ from langchain_openai import ChatOpenAI
 from .config import OSINTConfig
 from .models import Evidence, PlanStep, ProblemInput
 from .tools import (
-    GeolocationTool,
-    ImageOSINTTool,
-    SNSOSINTTool,
-    TextAnalysisTool,
-    URLInvestigationTool,
-    WebSearchTool,
+    GeolocationAgent,
+    ImageOSINTAgent,
+    SNSOSINTAgent,
+    TavilySearchAgent,
+    TextAnalysisAgent,
+    URLInvestigationAgent,
+    WebSearchAgent,
+    GoogleLensAgent,
+    ShodanAgent,
+    CensysAgent,
+    WhoisAgent,
+    BuiltWithAgent,
+    HunterAgent,
+    PhonebookAgent,
+    WaybackAgent,
+    SocialSearchAgent,
+    SherlockAgent,
+    EarthViewAgent,
+    YandexReverseImageAgent,
 )
 from .tools.geolocation import GeolocationLookupTool
 from .tools.image_osint import ImageInspectTool
@@ -57,6 +70,18 @@ def _extract_flags_from_text(text: str) -> List[str]:
     return re.findall(r"flag\{[^}]+\}", text, flags=re.IGNORECASE)
 
 
+def _dedupe_evidence_dicts(items: List[Dict]) -> List[Dict]:
+    seen = set()
+    deduped: List[Dict] = []
+    for ev in items:
+        key = (ev.get("source", ""), ev.get("fact", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(ev)
+    return deduped
+
+
 def _make_llm(config: OSINTConfig) -> Optional[ChatOpenAI]:
     if config.openrouter_api_key:
         return ChatOpenAI(
@@ -84,16 +109,29 @@ def _log_jsonl(payload: Dict) -> None:
 
 def build_langgraph_app(config: OSINTConfig) -> StateGraph:
     tools = [
-        TextAnalysisTool(),
-        URLInvestigationTool(),
-        SNSOSINTTool(),
-        WebSearchTool(
+        TextAnalysisAgent(),
+        URLInvestigationAgent(),
+        SNSOSINTAgent(),
+        WebSearchAgent(
             serpapi_api_key=config.serpapi_api_key,
             bing_api_key=config.bing_api_key,
             allow_network=config.allow_network,
         ),
-        GeolocationTool(),
-        ImageOSINTTool(),
+        TavilySearchAgent(api_key=config.tavily_api_key, allow_network=config.allow_network),
+        ShodanAgent(api_key=config.shodan_api_key, allow_network=config.allow_network),
+        CensysAgent(api_id=config.censys_api_id, api_secret=config.censys_api_secret, allow_network=config.allow_network),
+        WhoisAgent(),
+        BuiltWithAgent(api_key=config.builtwith_api_key, allow_network=config.allow_network),
+        HunterAgent(api_key=config.hunter_api_key, allow_network=config.allow_network),
+        PhonebookAgent(),
+        WaybackAgent(allow_network=config.allow_network),
+        SocialSearchAgent(),
+        SherlockAgent(),
+        GeolocationAgent(),
+        ImageOSINTAgent(),
+        EarthViewAgent(),
+        YandexReverseImageAgent(),
+        GoogleLensAgent(serpapi_api_key=config.serpapi_api_key, allow_network=config.allow_network),
     ]
 
     lc_tools = [GeolocationLookupTool(), ImageInspectTool()]
@@ -102,15 +140,14 @@ def build_langgraph_app(config: OSINTConfig) -> StateGraph:
 
     def planner_node(state: AgentState) -> AgentState:
         """Planner handles plan, task split, and retry/stop hints."""
-
-        base_plan = [
-            "extract entities",
-            "parse urls",
-            "sns pivot",
-            "web search",
-            "geolocation",
-            "image review",
-        ]
+        base_plan = ["extract entities", "parse urls"]
+        if state.get("urls"):
+            base_plan.append("url enrichment")
+        base_plan.append("sns pivot")
+        base_plan.append("web search")
+        if state.get("images"):
+            base_plan.append("image review")
+        base_plan.append("geolocation")
 
         if llm:
             prompt = (
@@ -148,7 +185,7 @@ def build_langgraph_app(config: OSINTConfig) -> StateGraph:
 
         ev_dicts = _evidence_to_dict(evs)
         all_ev = (state.get("evidence") or []) + ev_dicts
-        return {**state, "evidence": all_ev}
+        return {**state, "evidence": _dedupe_evidence_dicts(all_ev)}
 
     def validator_node(state: AgentState) -> AgentState:
         flags = list(state.get("flags") or [])
@@ -205,4 +242,3 @@ def build_langgraph_app(config: OSINTConfig) -> StateGraph:
     graph.set_entry_point("planner")
     graph.set_finish_point("flagger")
     return graph
-*** End of File
