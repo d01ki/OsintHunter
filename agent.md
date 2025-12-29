@@ -22,6 +22,95 @@ CTF（Capture The Flag）における **OSINT問題を自律的に解析・解�
 
 ### Phase 1：単一OSINT Agent（MVP）
 
+#### コンテナ構成（MVP）
+
+- ベース: python:3.11-slim
+- パッケージ: uv経由で langchain, langgraph, langchain-community, httpx, pydantic, pillow, tesseract-ocr, exiftool などをインストール（必要に応じて build-arg で追加）
+- 実行: `make dev` または `docker compose run --rm app bash` で開発シェル、`docker compose run --rm app python -m osinthunter.main "..."` でエージェント実行
+- マウント: ソースを /app に bind mount、`.env` を環境変数として読み込み
+- ネットワーク: `OSINTHUNTER_ALLOW_NETWORK=true` のときのみ外部API/検索ツールを有効化
+- ログ: /app/.cache/logs に永続化（bind mount）
+
+#### LangChain / LangGraph エージェントループ案（Phase 1.5）
+
+- 目的: 既存の逐次ツール実行を LangGraph ベースのエージェントループに置き換え、計画 → ツール実行 → 検証 を反復可能にする。
+- ノード構成（例）
+  - planner (LLM): 入力を受けて tool calls の候補を生成
+  - tools (LangChain Tools): text-analysis, url-investigation, sns-osint, web-search, geolocation, image-osint
+  - validator (LLM): 新規 evidence を整合性チェックし、不要なら棄却
+  - memory (State): EvidenceStore を LangGraph state に保持（追加のみ）
+  - flagger (LLM): 終了条件時に flag{...} 抽出と信頼度ソート
+- エッジ / 制御
+  - planner → tools → validator → planner を最大 N ループ（max_iterations）
+  - validator で終了条件: 信頼度高のフラグ候補が得られた、または探索飽和
+- 出力
+  - plan: planner 生成の step 群
+  - evidence: state に蓄積された全 Evidence
+  - flag_candidates: flag{...} / CTF 形式の候補
+  - trace: LangGraph run history（再現性用）
+
+#### LangGraph ノード構成と可視化サンプル
+
+- ノード: `planner` → `tools` → `validator` → `flagger`（終了）とし、`validator` が継続判断をして `planner` に戻す。
+- Tools は `ToolNode` に text-analysis / url-investigation / sns-osint / web-search / geolocation / image-osint を束ねる。
+- State 例: `{"input": str, "plan": list, "evidence": list, "flags": list, "loop": int}`。
+
+Jupyter / IPython での描画例（Mermaid PNG 表示）。依存: `pip install "langgraph[all]" ipython`（必要に応じ `playwright install chromium`）。
+
+```python
+from typing import TypedDict, List
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode
+from IPython.display import Image, display
+
+
+class AgentState(TypedDict):
+    input: str
+    plan: List[str]
+    evidence: List[str]
+    flags: List[str]
+    loop: int
+
+
+def planner_llm(state: AgentState) -> AgentState:
+    # LLM で次のツール呼び出しプランを作成する想定のダミー
+    return {**state, "plan": ["use text-analysis"], "loop": state.get("loop", 0) + 1}
+
+
+def validator_llm(state: AgentState) -> AgentState:
+    # LLM が終了条件を判定する想定のダミー
+    should_stop = state.get("loop", 0) >= 3
+    return {**state, "flags": state.get("flags", []) + (["flag{sample}"] if should_stop else [])}
+
+
+def flagger_llm(state: AgentState) -> AgentState:
+    # 終了時の出力整形を行う想定のダミー
+    return state
+
+
+tools = ToolNode([])  # 実際は LangChain のツール群を渡す
+
+builder = StateGraph(AgentState)
+builder.add_node("planner", planner_llm)
+builder.add_node("tools", tools)
+builder.add_node("validator", validator_llm)
+builder.add_node("flagger", flagger_llm)
+
+builder.add_edge("planner", "tools")
+builder.add_edge("tools", "validator")
+builder.add_conditional_edges(
+    "validator",
+    lambda s: "flagger" if s.get("flags") else "planner",
+    {"flagger": "flagger", "planner": "planner"},
+)
+
+builder.set_entry_point("planner")
+builder.set_finish_point("flagger")
+
+app = builder.compile()
+display(Image(app.get_graph().draw_mermaid_png()))
+```
+
 #### Agent名
 
 **OSINT-Agent**
