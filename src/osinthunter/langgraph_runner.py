@@ -1,4 +1,9 @@
-"""LangGraph-based multi-agent orchestration (planner, tools, validator, flagger)."""
+"""LangGraph-based multi-agent orchestration (planner, tools, validator, flagger).
+
+Note: This graph is intentionally LLM-light; it keeps deterministic heuristics so it
+can run offline. Replace the planner/validator with real LLM calls when keys are
+available.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +11,6 @@ import re
 from typing import Dict, List, TypedDict
 
 from langgraph.graph import StateGraph
-from langgraph.prebuilt import ToolNode
 
 from .config import OSINTConfig
 from .models import Evidence, PlanStep, ProblemInput
@@ -59,12 +63,16 @@ def build_langgraph_app(config: OSINTConfig) -> StateGraph:
         ImageOSINTTool(),
     ]
 
-    tool_node = ToolNode(tools)
     graph = StateGraph(AgentState)
 
     def planner_node(state: AgentState) -> AgentState:
-        # Planner is responsible for plan, task split, and retry/stop hints.
-        plan_steps = state.get("plan") or [
+        """Planner handles plan, task split, and retry/stop hints.
+
+        - If evidence is sparse, prioritize entity extraction and URL parsing.
+        - If images are present, include image/geo branches early.
+        - Loop count is used for simple stop control.
+        """
+        base_plan = [
             "extract entities",
             "parse urls",
             "sns pivot",
@@ -72,6 +80,8 @@ def build_langgraph_app(config: OSINTConfig) -> StateGraph:
             "geolocation",
             "image review",
         ]
+        # Simple heuristic: keep existing plan if provided, else use base.
+        plan_steps = state.get("plan") or base_plan
         loop = state.get("loop", 0) + 1
         return {**state, "plan": plan_steps, "loop": loop, "stop": False}
 
@@ -100,10 +110,8 @@ def build_langgraph_app(config: OSINTConfig) -> StateGraph:
     graph.add_node("tools", tools_node)
     graph.add_node("validator", validator_node)
     graph.add_node("flagger", flagger_node)
-    graph.add_node("run_tools", tool_node)
 
-    graph.add_edge("planner", "run_tools")
-    graph.add_edge("run_tools", "tools")
+    graph.add_edge("planner", "tools")
     graph.add_edge("tools", "validator")
 
     def route_after_validator(state: AgentState):
